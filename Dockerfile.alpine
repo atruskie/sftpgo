@@ -36,10 +36,10 @@ SHELL ["/bin/bash", "-c"]
 # https://github.com/gliderlabs/docker-alpine/issues/367#issuecomment-424546457
 RUN test ! -e /etc/nsswitch.conf && echo 'hosts: files dns' > /etc/nsswitch.conf
 
-RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo
+RUN mkdir -p /etc/sftpgo /usr/share/sftpgo
 
 RUN addgroup -g 1000 -S sftpgo && \
-    adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
+    adduser -u 1000 -h /data -s /sbin/nologin -G sftpgo -S -D -H sftpgo
 
 # Install some optional packages used by SFTPGo features
 RUN apk add --update --no-cache rsync git
@@ -50,11 +50,8 @@ ENV SFTPGO_LOG_FILE_PATH=""
 ENV SFTPGO_HTTPD__TEMPLATES_PATH=/usr/share/sftpgo/templates
 ENV SFTPGO_HTTPD__STATIC_FILES_PATH=/usr/share/sftpgo/static
 
-# Sane defaults, but users should still be able to override this from env vars
-ENV SFTPGO_DATA_PROVIDER__USERS_BASE_DIR=/var/lib/sftpgo/users
-ENV SFTPGO_DATA_PROVIDER__CREDENTIALS_PATH=/var/lib/sftpgo/credentials
-ENV SFTPGO_HTTPD__BACKUPS_PATH=/var/lib/sftpgo/backups
-ENV SFTPGO_SFTPD__HOST_KEYS=/var/lib/sftpgo/host_keys/id_rsa,/var/lib/sftpgo/host_keys/id_ecdsa
+ENV SFTPGO_DATA_PROVIDER__USERS_BASE_DIR=/data
+
 ENV SFTPGO_HTTPD__BIND_ADDRESS=""
 
 COPY --from=builder /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
@@ -62,14 +59,14 @@ COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
 COPY --from=builder /workspace/static /usr/share/sftpgo/static
 COPY --from=builder /workspace/sftpgo /usr/local/bin/
 
-RUN sed -i "s|sftpgo.db|/var/lib/sftpgo/sftpgo.db|" /etc/sftpgo/sftpgo.json
-
-RUN chown -R sftpgo:sftpgo /etc/sftpgo && chown sftpgo:sftpgo /var/lib/sftpgo && \
-    chmod 640 /etc/sftpgo/sftpgo.json && \
-    chmod 750 /etc/sftpgo /var/lib/sftpgo
+RUN chown -R sftpgo:sftpgo /etc/sftpgo && \
+    chmod 750 /etc/sftpgo && \
+    chmod 640 /etc/sftpgo/sftpgo.json
 
 USER sftpgo
 
-VOLUME /var/lib/sftpgo
+# bind /etc/sftpgo to a volume
+# /data stores user's uploaded files
+VOLUME [ "/etc/sftpgo", "/data" ]
 
 CMD sftpgo serve
